@@ -21,6 +21,10 @@ data class CarState(
     val problem: String? = null,
 )
 
+/** Motor ligado: OBD2 respondendo (ou demo) e rotação acima de zero. Meia chave = rotação 0. */
+val CarState.engineRunning: Boolean
+    get() = (link == Link.CONNECTED || link == Link.DEMO) && (sample.rpm ?: 0) > 0
+
 /** Ponto de encontro entre o serviço do OBD2 e as telas. */
 object CarRepo {
     private val _state = MutableStateFlow(CarState())

@@ -14,7 +14,13 @@ class DemoEngine(private val tickMs: Long = 250) : CarEngine {
         onLink(Link.DEMO)
         var tick = 0L
         while (true) {
+            val ms = tick * tickMs
             val t = tick++ * tickMs / 1000.0
+            if (ms < HALF_KEY_MS) {
+                onSample(Sample(rpm = 0, speedKmh = 0, coolantC = 60, batteryV = 12.5, mapKpa = 95, iatC = 30))
+                delay(tickMs)
+                continue
+            }
             val speed = (55 + 45 * sin(t / 25)).coerceIn(0.0, 120.0)
             onSample(
                 Sample(
@@ -28,6 +34,11 @@ class DemoEngine(private val tickMs: Long = 250) : CarEngine {
             )
             delay(tickMs)
         }
+    }
+
+    companion object {
+        /** Primeiros segundos em meia chave (motor parado), para ver as luzes acenderem na partida. */
+        const val HALF_KEY_MS = 6_000L
     }
 
     override suspend fun readDtcs(): Dtcs = synchronized(this) { Dtcs(stored.toList(), pending.toList(), emptyList()) }
