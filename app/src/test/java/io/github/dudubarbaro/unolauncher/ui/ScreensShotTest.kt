@@ -12,6 +12,7 @@ import io.github.dudubarbaro.unolauncher.obd.Link
 import io.github.dudubarbaro.unolauncher.obd.Sample
 import io.github.dudubarbaro.unolauncher.settings.Settings
 import io.github.dudubarbaro.unolauncher.trip.Fuel
+import io.github.dudubarbaro.unolauncher.trip.Trip
 import io.github.dudubarbaro.unolauncher.trip.TripState
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -48,5 +49,23 @@ class ScreensShotTest {
             AlertBanner(hot.alerts)
             Box(Modifier.weight(1f)) { ObdScreen(hot, etanol, null, {}, {}, {}, {}) }
         }
+    }
+
+    @Test fun dtcs() = shoot("dtc") { DtcScreen(Dtcs(listOf("P0171"), listOf("P0300"), emptyList()), Link.CONNECTED, false, {}, {}, {}) }
+
+    @Test fun dtcsEmpty() = shoot("dtc-vazio") { DtcScreen(Dtcs(emptyList(), emptyList(), emptyList()), Link.CONNECTED, false, {}, {}, {}) }
+
+    @Test fun dtcsDisconnected() = shoot("dtc-desconectado") { DtcScreen(null, Link.OFF, false, {}, {}, {}) }
+
+    @Test fun trips() = shoot("viagens") {
+        val day = 1_794_600_000_000L
+        TripsScreen(
+            TripState(0, 12.0, 1500.0, 1.6),
+            listOf(
+                Trip(day, day + 2_400_000, 23.4, 2400.0, 2.9, Fuel.ETANOL, 2.9 * 4.19),
+                Trip(day - 86_400_000, day - 86_400_000 + 900_000, 6.1, 900.0, 0.8, Fuel.ETANOL, 0.8 * 4.19),
+            ),
+            etanol, {}, {},
+        )
     }
 }
