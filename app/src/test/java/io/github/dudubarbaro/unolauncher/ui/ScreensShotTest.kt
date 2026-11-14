@@ -11,6 +11,7 @@ import io.github.dudubarbaro.unolauncher.obd.Dtcs
 import io.github.dudubarbaro.unolauncher.obd.Link
 import io.github.dudubarbaro.unolauncher.obd.Sample
 import io.github.dudubarbaro.unolauncher.settings.Settings
+import io.github.dudubarbaro.unolauncher.sys.Perm
 import io.github.dudubarbaro.unolauncher.trip.Fuel
 import io.github.dudubarbaro.unolauncher.trip.Trip
 import io.github.dudubarbaro.unolauncher.trip.TripState
@@ -66,6 +67,23 @@ class ScreensShotTest {
                 Trip(day - 86_400_000, day - 86_400_000 + 900_000, 6.1, 900.0, 0.8, Fuel.ETANOL, 0.8 * 4.19),
             ),
             etanol, {}, {},
+        )
+    }
+
+    @Test fun settings() = shoot("config") {
+        SettingsScreen(Settings(), setOf(Perm.BLUETOOTH), listOf("OBDII" to "BB:BB"), null, {}, {}, {}, {}, {}, {}, {})
+    }
+
+    @Test fun apps() = shoot("apps") {
+        val names = listOf("Waze", "Spotify", "YouTube Music", "Chrome", "Arquivos", "Rádio", "Maps", "Telefone", "Configurações", "Câmera", "Galeria", "Uno Launcher")
+        AppsScreen("Apps", names.map { AppEntry(it, "pkg.$it", null) }, {}, {})
+    }
+
+    @Test fun about() = shoot("sobre") {
+        AboutScreen(
+            listOf("Resolução" to "1024×600", "Densidade" to "160 dpi", "Android" to "13 (SDK 33)"),
+            listOf("2026-11-14 07:58:02  SCREEN_ON", "2026-11-14 07:58:01  APP INICIADO (boot #42)", "2026-11-14 07:57:55  BOOT_COMPLETED"),
+            {},
         )
     }
 }
