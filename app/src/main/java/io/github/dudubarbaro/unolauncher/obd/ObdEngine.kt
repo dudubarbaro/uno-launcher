@@ -1,6 +1,7 @@
 package io.github.dudubarbaro.unolauncher.obd
 
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -32,18 +33,28 @@ class ObdEngine(private val open: () -> ElmSession) : CarEngine {
                 onLink(Link.CONNECTING)
                 try {
                     s = open()
-                    while (!initialize(s)) { onLink(Link.IGNITION_OFF); delay(5000) }
-                    session = s
-                    backoff = MIN_BACKOFF
-                    onLink(Link.CONNECTED)
-                    var last = Sample()
-                    var tick = 0
                     while (true) {
-                        mutex.withLock { for (c in pollPlan(tick++, supported)) last = merge(last, c, s.cmd(c)) }
-                        onSample(last)
-                        delay(100)
+                        while (!initialize(s)) { onLink(Link.IGNITION_OFF); delay(5000) }
+                        session = s
+                        backoff = MIN_BACKOFF
+                        onLink(Link.CONNECTED)
+                        var last = Sample()
+                        var tick = 0
+                        var silent = 0
+                        // A central parou de responder (ignição desligada com o adaptador ainda ligado): volta a inicializar.
+                        while (silent < SILENT_CYCLES) {
+                            mutex.withLock { for (c in pollPlan(tick++, supported)) last = merge(last, c, s.cmd(c)) }
+                            silent = if (last.rpm == null && last.speedKmh == null) silent + 1 else 0
+                            onSample(last)
+                            delay(100)
+                        }
+                        session = null
                     }
-                } catch (e: IOException) {
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // IOException do Bluetooth, mas também SecurityException/IllegalArgumentException do Android:
+                    // nada aqui pode derrubar a tela inicial.
                     session = null
                     runCatching { s?.close() }
                     s = null
@@ -103,5 +114,6 @@ class ObdEngine(private val open: () -> ElmSession) : CarEngine {
     private companion object {
         const val MIN_BACKOFF = 2_000L
         const val MAX_BACKOFF = 30_000L
+        const val SILENT_CYCLES = 3
     }
 }

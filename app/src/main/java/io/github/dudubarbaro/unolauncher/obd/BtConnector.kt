@@ -37,12 +37,16 @@ fun bondedDevices(ctx: Context): List<Pair<String, String>> {
 fun btSession(ctx: Context, address: String): ElmSession {
     if (!hasBluetooth(ctx)) throw IOException("sem permissão de Bluetooth")
     val adapter = ctx.getSystemService(BluetoothManager::class.java)?.adapter ?: throw IOException("sem Bluetooth")
-    adapter.cancelDiscovery()
-    val device = adapter.getRemoteDevice(address)
+    // Sem cancelDiscovery(): no Android 12+ ele exige BLUETOOTH_SCAN, e o app nunca inicia uma busca.
     val socket = try {
-        device.createRfcommSocketToServiceRecord(SPP).also { it.connect() }
-    } catch (e: IOException) {
-        device.createInsecureRfcommSocketToServiceRecord(SPP).also { it.connect() }
+        val device = adapter.getRemoteDevice(address)
+        try {
+            device.createRfcommSocketToServiceRecord(SPP).also { it.connect() }
+        } catch (e: IOException) {
+            device.createInsecureRfcommSocketToServiceRecord(SPP).also { it.connect() }
+        }
+    } catch (e: SecurityException) {
+        throw IOException("sem permissão de Bluetooth", e)
     }
     return ElmSession(socket.inputStream, socket.outputStream) { socket.close() }
 }

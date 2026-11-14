@@ -30,8 +30,10 @@ import io.github.dudubarbaro.unolauncher.obd.hasBluetooth
 import io.github.dudubarbaro.unolauncher.obd.pickAdapter
 import io.github.dudubarbaro.unolauncher.trip.TripState
 import io.github.dudubarbaro.unolauncher.trip.advance
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,11 +45,20 @@ import kotlinx.coroutines.launch
 
 /** Mantém o OBD2 (ou o demo) rodando e somando a viagem mesmo com outro app na tela. */
 class ObdService : Service() {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // Última barreira: um erro inesperado no OBD2 vira aviso na tela, nunca derruba a tela inicial.
+    private val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, e ->
+            Graph.events.add("ERRO OBD2: ${e.javaClass.simpleName}", System.currentTimeMillis())
+            CarRepo.engine = null
+            CarRepo.set { it.copy(link = Link.OFF, problem = "Erro no OBD2, toque em Conectar") }
+        },
+    )
+    private var collector: Job? = null
     private val retry = MutableStateFlow(0)
     private val lock = Any()
     private var trip = TripState()
-    private var demo = false
+    /** Nulo até a primeira viagem ser carregada: antes disso não há nada para salvar. */
+    private var demo: Boolean? = null
     private var lastMs = 0L
     private var lastSaveMs = 0L
     private var savedKm = 0.0
@@ -62,7 +73,11 @@ class ObdService : Service() {
         nm.createNotificationChannel(NotificationChannel(CH_ALERT, "Alertas do carro", NotificationManager.IMPORTANCE_HIGH))
         goForeground()
         CarRepo.onNewTrip = ::newTrip
-        scope.launch {
+        startCollector()
+    }
+
+    private fun startCollector() {
+        collector = scope.launch {
             Graph.settings.flow.map { it.demo to it.adapterAddress }.distinctUntilChanged()
                 .combine(retry) { cfg, _ -> cfg }
                 .collectLatest { (d, addr) -> runEngine(d, addr) }
@@ -71,12 +86,13 @@ class ObdService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         goForeground()
-        if (CarRepo.engine == null) retry.value++ // botão "Conectar" ou volta para o app
+        if (collector?.isActive != true) startCollector()
+        else if (CarRepo.engine == null) retry.value++ // botão "Conectar" ou volta para o app
         return START_STICKY
     }
 
     override fun onDestroy() {
-        synchronized(lock) { if (!demo) persist() }
+        synchronized(lock) { if (demo == false) persist() }
         scope.cancel()
         CarRepo.onNewTrip = null
         CarRepo.engine = null
@@ -94,7 +110,7 @@ class ObdService : Service() {
 
     private suspend fun runEngine(demoMode: Boolean, saved: String?) {
         synchronized(lock) {
-            if (!demo) persist()
+            if (demo == false) persist()
             demo = demoMode
             trip = if (demoMode) TripState() else Graph.trips.loadCurrent() ?: TripState()
             savedKm = trip.km
@@ -138,7 +154,7 @@ class ObdService : Service() {
             val dt = if (lastMs == 0L) 0.0 else (now - lastMs) / 1000.0
             lastMs = now
             trip = advance(trip, s, dt, System.currentTimeMillis(), cfg.fuel, cfg.fuelMultiplier)
-            if (!demo && now - lastSaveMs >= SAVE_EVERY_MS) { persist(); lastSaveMs = now }
+            if (demo == false && now - lastSaveMs >= SAVE_EVERY_MS) { persist(); lastSaveMs = now }
             trip to alerts(s, cfg)
         }
         CarRepo.set { it.copy(sample = s, trip = t, alerts = al) }
@@ -156,7 +172,7 @@ class ObdService : Service() {
     private fun newTrip() {
         val cfg = Graph.settings.value
         synchronized(lock) {
-            if (!demo) {
+            if (demo == false) {
                 persist()
                 Graph.trips.finish(trip, System.currentTimeMillis(), cfg.fuel, cfg.pricePerL)
             }
@@ -191,9 +207,11 @@ class ObdService : Service() {
         private const val CH_ALERT = "alertas"
         private const val SAVE_EVERY_MS = 10_000L
 
-        /** Sem permissão de Bluetooth não sobe: no Android 14+ o serviço cairia. */
+        /**
+         * Sobe mesmo sem permissão de Bluetooth (o modo demo funciona e o painel explica o que falta).
+         * No Android 14+ o tipo connectedDevice fica liberado pela CHANGE_NETWORK_STATE declarada no manifesto.
+         */
         fun start(ctx: Context) {
-            if (!hasBluetooth(ctx)) return
             ContextCompat.startForegroundService(ctx, Intent(ctx, ObdService::class.java))
         }
     }

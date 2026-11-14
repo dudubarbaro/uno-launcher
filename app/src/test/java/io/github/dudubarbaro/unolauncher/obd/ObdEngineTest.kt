@@ -48,6 +48,22 @@ class ObdEngineTest {
         assertTrue(f.sent.count { it == "0100" } >= 2) // continua tentando
     }
 
+    @Test fun securityErrorRetries() = runTest {
+        var opens = 0; val links = mutableListOf<Link>()
+        val job = launch { ObdEngine { opens++; throw SecurityException("sem permissão") }.run({ links += it }, {}) }
+        advanceTimeBy(10_000); job.cancel()
+        assertTrue(opens >= 2); assertTrue(links.all { it == Link.CONNECTING })
+    }
+
+    @Test fun ecuSilentGoesIgnitionOff() = runTest {
+        val script = car.toMutableMap(); val f = FakeElm(script); val links = mutableListOf<Link>()
+        val job = launch { ObdEngine { f.session() }.run({ links += it }, {}) }
+        advanceTimeBy(2_000)
+        script["010C"] = "NO DATA"; script["010D"] = "NO DATA"; script["0100"] = "UNABLE TO CONNECT"
+        advanceTimeBy(10_000); job.cancel()
+        assertEquals(listOf(Link.CONNECTING, Link.CONNECTED), links.take(2)); assertEquals(Link.IGNITION_OFF, links.last())
+    }
+
     @Test fun ioErrorReconnects() = runTest {
         var opens = 0; val links = mutableListOf<Link>()
         val job = launch { ObdEngine { opens++; FakeElm(car, failAfter = if (opens == 1) 12 else null).session() }.run({ links += it }, {}) }
