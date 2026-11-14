@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import io.github.dudubarbaro.unolauncher.car.CarRepo
 import io.github.dudubarbaro.unolauncher.car.ObdService
+import io.github.dudubarbaro.unolauncher.car.engineRunning
 import io.github.dudubarbaro.unolauncher.env.Brightness
 import io.github.dudubarbaro.unolauncher.env.Metno
 import io.github.dudubarbaro.unolauncher.env.refreshLocation
@@ -69,6 +71,7 @@ import io.github.dudubarbaro.unolauncher.ui.SettingsScreen
 import io.github.dudubarbaro.unolauncher.ui.TripsScreen
 import io.github.dudubarbaro.unolauncher.ui.UnoTheme
 import io.github.dudubarbaro.unolauncher.ui.pianoBackground
+import io.github.dudubarbaro.unolauncher.ui.resolveShortcut
 import io.github.dudubarbaro.unolauncher.ui.su
 import java.io.File
 import java.time.ZonedDateTime
@@ -81,7 +84,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private enum class Screen(val parentName: String) {
-    HOME("HOME"), OBD("HOME"), DTC("OBD"), TRIPS("OBD"), SETTINGS("HOME"), APPS("SETTINGS"), PICK_START_APP("SETTINGS"), ABOUT("SETTINGS");
+    HOME("HOME"), OBD("HOME"), DTC("OBD"), TRIPS("OBD"), SETTINGS("HOME"), APPS("SETTINGS"), PICK_START_APP("SETTINGS"), PICK_SHORTCUT("SETTINGS"), ABOUT("SETTINGS");
 
     val parent: Screen get() = valueOf(parentName)
 }
@@ -210,6 +213,8 @@ class MainActivity : ComponentActivity() {
         val home by homePressed.collectAsStateWithLifecycle()
         var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
         var photoVersion by remember { mutableIntStateOf(0) }
+        var pickSlot by rememberSaveable { mutableIntStateOf(0) }
+        val settingsList = rememberLazyListState()
         var busy by remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
 
@@ -223,6 +228,9 @@ class MainActivity : ComponentActivity() {
         var photo by remember { mutableStateOf<ImageBitmap?>(null) }
         LaunchedEffect(photoVersion) { photo = withContext(Dispatchers.IO) { loadPhoto() } }
         val granted = remember(resumeTick) { Perms.granted(this) }
+        var apps by remember { mutableStateOf(emptyList<AppEntry>()) }
+        LaunchedEffect(resumeTick) { apps = withContext(Dispatchers.IO) { loadApps() } }
+        val shortcuts = remember(settings.shortcuts, apps) { settings.shortcuts.map { resolveShortcut(it, apps) } }
         val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             if (uri != null) {
                 scope.launch {
@@ -257,9 +265,13 @@ class MainActivity : ComponentActivity() {
                                             music = music,
                                             musicAccess = Perm.MUSICA in granted,
                                             photo = photo,
+                                            lightsOn = car.engineRunning,
+                                            shortcuts = shortcuts,
                                         ),
-                                        onWaze = { Startup.launch(this@MainActivity, "com.waze", "Waze") },
-                                        onSpotify = { Startup.launch(this@MainActivity, "com.spotify.music", "Spotify") },
+                                        onShortcut = { app ->
+                                            if (app.pkg.isBlank()) Toast.makeText(this@MainActivity, "${app.label} não está instalado", Toast.LENGTH_SHORT).show()
+                                            else Startup.launch(this@MainActivity, app.pkg, app.label)
+                                        },
                                         onObd = { screen = Screen.OBD },
                                         onSettings = { screen = Screen.SETTINGS },
                                         onPlayPause = MediaRepo::playPause,
@@ -311,31 +323,46 @@ class MainActivity : ComponentActivity() {
                                         settings, granted,
                                         bonded = remember(resumeTick) { bondedDevices(this@MainActivity) },
                                         startAppLabel = settings.startOpenApp?.let(::appLabel),
+                                        shortcutLabels = shortcuts.map { it.label },
+                                        customPhoto = photo != null,
+                                        listState = settingsList,
                                         onChange = Graph.settings::update,
                                         onPickPhoto = {
                                             pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                                         },
+                                        onDefaultPhoto = {
+                                            scope.launch {
+                                                withContext(Dispatchers.IO) { photoFile.delete() }
+                                                photoVersion++
+                                            }
+                                        },
+                                        onPickShortcut = { pickSlot = it; screen = Screen.PICK_SHORTCUT },
                                         onPerm = ::onPerm,
                                         onPickStartApp = { screen = Screen.PICK_START_APP },
                                         onApps = { screen = Screen.APPS },
                                         onAbout = { screen = Screen.ABOUT },
                                         onBack = { screen = Screen.HOME },
                                     )
-                                    Screen.APPS, Screen.PICK_START_APP -> {
-                                        val apps by produceState(emptyList<AppEntry>()) {
-                                            val loaded = withContext(Dispatchers.IO) { loadApps() }
-                                            value = loaded
-                                        }
-                                        val picking = screen == Screen.PICK_START_APP
+                                    Screen.APPS, Screen.PICK_START_APP, Screen.PICK_SHORTCUT -> {
                                         AppsScreen(
-                                            if (picking) "App que abre ao ligar" else "Apps",
+                                            when (screen) {
+                                                Screen.PICK_START_APP -> "App que abre ao ligar"
+                                                Screen.PICK_SHORTCUT -> "Atalho ${pickSlot + 1} da tela inicial"
+                                                else -> "Apps"
+                                            },
                                             apps,
                                             onPick = { pkg ->
-                                                if (picking) {
-                                                    Graph.settings.update { it.copy(startOpenApp = pkg) }
-                                                    screen = Screen.SETTINGS
-                                                } else {
-                                                    Startup.launch(this@MainActivity, pkg)
+                                                when (screen) {
+                                                    Screen.PICK_START_APP -> {
+                                                        Graph.settings.update { it.copy(startOpenApp = pkg) }
+                                                        screen = Screen.SETTINGS
+                                                    }
+                                                    Screen.PICK_SHORTCUT -> {
+                                                        val slot = pickSlot
+                                                        Graph.settings.update { s -> s.copy(shortcuts = s.shortcuts.toMutableList().also { it[slot] = pkg }) }
+                                                        screen = Screen.SETTINGS
+                                                    }
+                                                    else -> Startup.launch(this@MainActivity, pkg)
                                                 }
                                             },
                                             onBack = { screen = Screen.SETTINGS },

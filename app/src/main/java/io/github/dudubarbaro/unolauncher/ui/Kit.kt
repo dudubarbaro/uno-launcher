@@ -1,6 +1,7 @@
 package io.github.dudubarbaro.unolauncher.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -79,7 +81,7 @@ fun Modifier.card(): Modifier = this
 
 /** Atalho grande da tela inicial. */
 @Composable
-fun Tile(label: String, glyph: String, highlight: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun Tile(label: String, glyph: String, highlight: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageBitmap? = null) {
     val accent = LocalAccent.current
     Column(
         modifier
@@ -90,8 +92,8 @@ fun Tile(label: String, glyph: String, highlight: Boolean, onClick: () -> Unit, 
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Label(glyph, 34, color = if (highlight) accent else TextMain, bold = true)
-        Label(label, 18, maxLines = 1)
+        if (icon != null) Image(icon, null, Modifier.size(52.su)) else Label(glyph, 34, color = if (highlight) accent else TextMain, bold = true)
+        if (label.isNotBlank()) Label(label, 18, maxLines = 1)
     }
 }
 

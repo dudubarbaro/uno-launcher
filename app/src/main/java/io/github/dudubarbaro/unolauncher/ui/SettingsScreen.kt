@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -52,8 +53,13 @@ fun SettingsScreen(
     granted: Set<Perm>,
     bonded: List<Pair<String, String>>,
     startAppLabel: String?,
+    shortcutLabels: List<String>,
+    customPhoto: Boolean,
+    listState: LazyListState,
     onChange: ((Settings) -> Settings) -> Unit,
     onPickPhoto: () -> Unit,
+    onDefaultPhoto: () -> Unit,
+    onPickShortcut: (Int) -> Unit,
     onPerm: (Perm) -> Unit,
     onPickStartApp: () -> Unit,
     onApps: () -> Unit,
@@ -62,9 +68,13 @@ fun SettingsScreen(
 ) {
     Column(Modifier.fillMaxSize().padding(20.su), verticalArrangement = Arrangement.spacedBy(12.su)) {
         ScreenHeader("Configurações", onBack)
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.su)) {
+        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(10.su)) {
+            section("Tela inicial")
+            item { NavRow("Foto do Uno", if (customPhoto) "Foto da galeria" else "Uno padrão · trocar pela galeria", onPickPhoto) }
+            if (customPhoto) item { NavRow("Usar o Uno padrão", "Com as luzes acendendo quando o motor liga", onDefaultPhoto) }
+            shortcutLabels.forEachIndexed { i, label -> item { NavRow("Atalho ${i + 1}", label) { onPickShortcut(i) } } }
+
             section("Carro")
-            item { NavRow("Foto do Uno", "Escolher na galeria", onPickPhoto) }
             item {
                 ChoiceRow("Combustível no tanque", Fuel.entries.map { it.label.replaceFirstChar(Char::uppercase) }, Fuel.entries.indexOf(s.fuel)) { i ->
                     onChange { it.copy(fuel = Fuel.entries[i]) }

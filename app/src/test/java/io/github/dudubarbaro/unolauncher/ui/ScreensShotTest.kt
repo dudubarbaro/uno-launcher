@@ -3,6 +3,7 @@ package io.github.dudubarbaro.unolauncher.ui
 import android.app.Application
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Modifier
 import io.github.dudubarbaro.unolauncher.car.Alert
 import io.github.dudubarbaro.unolauncher.car.CarState
@@ -32,12 +33,18 @@ class ScreensShotTest {
         TripState(0, 12.0, 1500.0, 1.6), emptySet(),
     )
 
+    private val shortcuts = listOf(AppEntry("Waze", "com.waze", null), AppEntry("Spotify", "com.spotify.music", null), AppEntry("Consis", "", null))
+
     @Test fun home() = shoot("home") {
-        HomeScreen(HomeUi("14:32", "sáb 14 nov", "27° ☀", "89°C", "14,1 V", null, music, true, null), {}, {}, {}, {}, {}, {}, {}, {})
+        HomeScreen(HomeUi("14:32", "sáb 14 nov", "27° ☀", "89°C", "14,1 V", null, music, true, null, false, shortcuts), {}, {}, {}, {}, {}, {}, {})
+    }
+
+    @Test fun homeLightsOn() = shoot("home-luzes") {
+        HomeScreen(HomeUi("14:32", "sáb 14 nov", "27° ☀", "89°C", "14,1 V", null, music, true, null, true, shortcuts), {}, {}, {}, {}, {}, {}, {})
     }
 
     @Test fun homeNoObdNoMusic() = shoot("home-sem-obd") {
-        HomeScreen(HomeUi("14:32", "sáb 14 nov", null, "—", "—", "OBD2 desconectado", null, false, null), {}, {}, {}, {}, {}, {}, {}, {})
+        HomeScreen(HomeUi("14:32", "sáb 14 nov", null, "—", "—", "OBD2 desconectado", null, false, null, false, shortcuts), {}, {}, {}, {}, {}, {}, {})
     }
 
     @Test fun obd() = shoot("obd") { ObdScreen(connected, etanol, null, {}, {}, {}, {}) }
@@ -71,7 +78,10 @@ class ScreensShotTest {
     }
 
     @Test fun settings() = shoot("config") {
-        SettingsScreen(Settings(), setOf(Perm.BLUETOOTH), listOf("OBDII" to "BB:BB"), null, {}, {}, {}, {}, {}, {}, {})
+        SettingsScreen(
+            Settings(), setOf(Perm.BLUETOOTH), listOf("OBDII" to "BB:BB"), null, listOf("Waze", "Spotify", "Consis"), true,
+            rememberLazyListState(), {}, {}, {}, {}, {}, {}, {}, {}, {},
+        )
     }
 
     @Test fun apps() = shoot("apps") {

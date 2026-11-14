@@ -1,9 +1,13 @@
 package io.github.dudubarbaro.unolauncher
 
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performScrollToNode
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
@@ -29,7 +33,17 @@ class MainActivitySmokeTest {
         rule.onNodeWithText("estimativa · toque para ver as viagens").performClick()
         rule.onNodeWithText("Nova viagem").assertExists()
         rule.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed(); it.onBackPressedDispatcher.onBackPressed() }
-        rule.onNodeWithText("Configurações").performClick()
+        rule.onNodeWithText("⚙").performClick()
         rule.onNodeWithText("Foto do Uno").assertExists()
+    }
+
+    /** Voltar de uma opção do fim da lista não pode jogar Configurações para o topo. */
+    @Test fun settingsKeepsScrollAfterSubScreen() {
+        rule.onNodeWithText("⚙").performClick()
+        rule.onNode(hasScrollAction()).performScrollToNode(hasText("Sobre este aparelho"))
+        rule.onNodeWithText("Sobre este aparelho").performClick()
+        rule.onNodeWithText("Versão do app").assertExists()
+        rule.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        rule.onNodeWithText("Sobre este aparelho").assertIsDisplayed()
     }
 }

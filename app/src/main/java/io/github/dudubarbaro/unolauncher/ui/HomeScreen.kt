@@ -1,6 +1,8 @@
 package io.github.dudubarbaro.unolauncher.ui
 
 import android.os.SystemClock
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,7 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.painterResource
+import io.github.dudubarbaro.unolauncher.R
 import io.github.dudubarbaro.unolauncher.media.NowPlaying
 
 data class HomeUi(
@@ -38,16 +42,19 @@ data class HomeUi(
     val music: NowPlaying?,
     val musicAccess: Boolean,
     val photo: ImageBitmap?,
+    /** Motor ligado: milhas, meia luz do alto e setas conjugadas acesas no Uno padrão. */
+    val lightsOn: Boolean = false,
+    val shortcuts: List<AppEntry> = emptyList(),
 )
 
 private val photoEmpty = Brush.linearGradient(listOf(Color(0xFF2A2A2E), Color(0xFF0C0C0E)))
+private val showroom = Brush.radialGradient(listOf(Color(0xFF26262B), Color(0xFF09090B)))
 
-/** Tela inicial (modelo B): foto do Uno em destaque, música à direita e 4 atalhos embaixo. */
+/** Tela inicial (modelo B): Uno em destaque, música à direita; embaixo 3 apps, OBD2 e ⚙. */
 @Composable
 fun HomeScreen(
     ui: HomeUi,
-    onWaze: () -> Unit,
-    onSpotify: () -> Unit,
+    onShortcut: (AppEntry) -> Unit,
     onObd: () -> Unit,
     onSettings: () -> Unit,
     onPlayPause: () -> Unit,
@@ -63,10 +70,11 @@ fun HomeScreen(
                 MusicCard(ui, onPlayPause, onNext, onPrev, onGrantMusic, Modifier.weight(1f).fillMaxHeight())
             }
             Row(Modifier.fillMaxWidth().height(tileH), horizontalArrangement = Arrangement.spacedBy(16.su)) {
-                Tile("Waze", "➤", false, onWaze, Modifier.weight(1f).fillMaxHeight())
-                Tile("Spotify", "♫", false, onSpotify, Modifier.weight(1f).fillMaxHeight())
+                ui.shortcuts.forEach { app ->
+                    Tile(app.label, app.label.take(1).uppercase(), false, { onShortcut(app) }, Modifier.weight(1f).fillMaxHeight(), app.icon)
+                }
                 Tile("OBD2", "◉", true, onObd, Modifier.weight(1f).fillMaxHeight())
-                Tile("Configurações", "⚙", false, onSettings, Modifier.weight(1f).fillMaxHeight())
+                Tile("", "⚙", false, onSettings, Modifier.weight(0.5f).fillMaxHeight())
             }
         }
     }
@@ -75,30 +83,27 @@ fun HomeScreen(
 @Composable
 private fun PhotoCard(ui: HomeUi, modifier: Modifier) {
     val accent = androidx.compose.material3.MaterialTheme.colorScheme.primary
-    Box(modifier.clip(RoundedCornerShape(10.su)).background(photoEmpty)) {
+    Box(modifier.clip(RoundedCornerShape(10.su)).background(if (ui.photo != null) photoEmpty else showroom)) {
         if (ui.photo != null) {
             Image(ui.photo, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            // Sombra para ler hora e números por cima de qualquer foto.
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.6f), 0.45f to Color.Transparent)))
         } else {
-            Label(
-                "Escolha a foto do seu Uno\nem Configurações", 18, Modifier.align(Alignment.Center).padding(24.su),
-                color = TextDim, align = TextAlign.Center,
-            )
+            val lit by animateFloatAsState(if (ui.lightsOn) 1f else 0f, tween(600), label = "luzes")
+            val car = Modifier.align(Alignment.BottomEnd).fillMaxHeight(0.78f).padding(end = 12.su)
+            Image(painterResource(R.drawable.uno_off), "Uno", car, contentScale = ContentScale.Fit)
+            Image(painterResource(R.drawable.uno_on), null, car, alpha = lit, contentScale = ContentScale.Fit)
         }
-        // Sombra para ler hora e números por cima de qualquer foto.
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.55f), 0.45f to Color.Transparent)))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.6f))))
         Column(Modifier.align(Alignment.TopStart).padding(20.su)) {
             Label(ui.clock, 64, bold = true)
             Label(listOfNotNull(ui.date, ui.weather).joinToString(" · "), 20, color = TextMain)
         }
-        Row(
-            Modifier.align(Alignment.BottomEnd).padding(20.su),
-            horizontalArrangement = Arrangement.spacedBy(20.su),
-            verticalAlignment = Alignment.Bottom,
-        ) {
+        Column(Modifier.align(Alignment.TopEnd).padding(20.su), horizontalAlignment = Alignment.End) {
+            Row(horizontalArrangement = Arrangement.spacedBy(20.su)) {
+                Metric(ui.coolant, "motor", accent)
+                Metric(ui.battery, "bateria", accent)
+            }
             ui.obdHint?.let { Label(it, 15, color = TextDim) }
-            Metric(ui.coolant, "motor", accent)
-            Metric(ui.battery, "bateria", accent)
         }
         Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(0.4f).height(4.su).background(accent))
     }
