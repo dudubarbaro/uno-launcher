@@ -15,6 +15,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        // Contato exigido pelo met.no; vem de ~/.gradle/gradle.properties, nunca do repositório.
+        buildConfigField("String", "MET_CONTACT", "\"${findProperty("unoContact") ?: ""}\"")
     }
 
     buildFeatures {
