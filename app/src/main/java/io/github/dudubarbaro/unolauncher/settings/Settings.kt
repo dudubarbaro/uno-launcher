@@ -3,7 +3,12 @@ package io.github.dudubarbaro.unolauncher.settings
 import io.github.dudubarbaro.unolauncher.trip.Fuel
 import io.github.dudubarbaro.unolauncher.ui.Accent
 
+/** O pacote Android do Consis não é conhecido: o atalho padrão acha o app pelo nome. */
+const val CONSIS_BY_NAME = "nome:Consis"
+
 data class Settings(
+    // Tela inicial: 3 atalhos (pacote ou "nome:<nome do app>")
+    val shortcuts: List<String> = listOf("com.waze", "com.spotify.music", CONSIS_BY_NAME),
     // Carro
     val fuel: Fuel = Fuel.GASOLINA,
     val pricePerL: Double = 0.0,

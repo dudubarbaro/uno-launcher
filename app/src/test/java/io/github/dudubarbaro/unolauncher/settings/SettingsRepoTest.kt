@@ -19,8 +19,18 @@ class SettingsRepoTest {
         val changed = Settings(
             fuel = Fuel.ETANOL, pricePerL = 4.19, adapterAddress = "00:11:22:33:44:55", startOpenApp = "com.waze",
             accent = Accent.AZUL, fullscreen = true, alertCoolantC = 110, demo = true, lat = -22.91, lon = -43.17, odometerKm = 98765.4,
+            shortcuts = listOf("com.a", "com.b", "com.c"),
         )
         SettingsRepo(prefs).update { changed }
         assertEquals(changed, SettingsRepo(prefs).value)
     }
+
+    @Test fun badShortcutsFallBackToDefault() {
+        val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("t2", 0)
+        prefs.edit().putString("shortcuts", "com.a\ncom.b").commit()
+        assertEquals(Settings().shortcuts, SettingsRepo(prefs).value.shortcuts)
+    }
+
+    @Test fun defaultShortcuts() =
+        assertEquals(listOf("com.waze", "com.spotify.music", CONSIS_BY_NAME), Settings().shortcuts)
 }

@@ -25,6 +25,7 @@ class SettingsRepo(private val prefs: SharedPreferences) {
 
     private fun load() = Settings().let { def ->
         Settings(
+            shortcuts = prefs.getString("shortcuts", null)?.split('\n')?.takeIf { it.size == 3 } ?: def.shortcuts,
             fuel = Fuel.fromKey(prefs.getString("fuel", null)),
             pricePerL = d("pricePerL", def.pricePerL),
             fuelMultiplier = d("fuelMultiplier", def.fuelMultiplier),
@@ -52,6 +53,7 @@ class SettingsRepo(private val prefs: SharedPreferences) {
     private fun save(s: Settings) {
         val e = prefs.edit()
         fun str(k: String, v: String?) { if (v == null) e.remove(k) else e.putString(k, v) }
+        str("shortcuts", s.shortcuts.joinToString("\n"))
         str("fuel", s.fuel.key)
         str("pricePerL", s.pricePerL.toString())
         str("fuelMultiplier", s.fuelMultiplier.toString())
