@@ -19,7 +19,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,8 +33,11 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import io.github.dudubarbaro.unolauncher.R
 import io.github.dudubarbaro.unolauncher.media.NowPlaying
+import kotlinx.coroutines.delay
 
 data class HomeUi(
     val clock: String,
@@ -89,9 +96,18 @@ private fun PhotoCard(ui: HomeUi, modifier: Modifier) {
             // Sombra para ler hora e números por cima de qualquer foto.
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.6f), 0.45f to Color.Transparent)))
         } else {
-            val lit by animateFloatAsState(if (ui.lightsOn) 1f else 0f, tween(600), label = "luzes")
+            // Acende na hora; só apaga após 2 s sem motor, para uma leitura de rotação perdida não piscar os faróis.
+            var on by remember { mutableStateOf(ui.lightsOn) }
+            LaunchedEffect(ui.lightsOn) {
+                if (!ui.lightsOn) delay(2_000)
+                on = ui.lightsOn
+            }
+            val lit by animateFloatAsState(if (on) 1f else 0f, tween(600), label = "luzes")
             val car = Modifier.align(Alignment.BottomEnd).fillMaxHeight(0.78f).padding(end = 12.su)
-            Image(painterResource(R.drawable.uno_off), "Uno", car, contentScale = ContentScale.Fit)
+            Image(
+                painterResource(R.drawable.uno_off), "Uno",
+                car.semantics { stateDescription = if (on) "luzes acesas" else "luzes apagadas" }, contentScale = ContentScale.Fit,
+            )
             Image(painterResource(R.drawable.uno_on), null, car, alpha = lit, contentScale = ContentScale.Fit)
         }
         Column(Modifier.align(Alignment.TopStart).padding(20.su)) {

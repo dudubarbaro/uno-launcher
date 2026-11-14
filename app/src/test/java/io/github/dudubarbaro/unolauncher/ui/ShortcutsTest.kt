@@ -22,4 +22,11 @@ class ShortcutsTest {
     @Test fun knownPackageMissing() = assertEquals(AppEntry("Spotify", "com.spotify.music", null), resolveShortcut("com.spotify.music", apps))
 
     @Test fun unknownPackageMissing() = assertEquals("com.foo", resolveShortcut("com.foo", apps).label)
+
+    /** Logo após o boot a lista de apps ainda está vazia: o toque procura o Consis de novo. */
+    @Test fun nameShortcutLooksUpAgainOnTap() =
+        assertEquals("br.com.x.consis", shortcutPackage(AppEntry("Consis", "", null)) { apps })
+
+    @Test fun packageShortcutSkipsLookup() =
+        assertEquals("com.waze", shortcutPackage(AppEntry("Waze", "com.waze", null)) { error("sem busca") })
 }

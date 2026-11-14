@@ -12,3 +12,7 @@ fun resolveShortcut(saved: String, apps: List<AppEntry>): AppEntry {
     }
     return apps.firstOrNull { it.pkg == saved } ?: AppEntry(knownNames[saved] ?: saved, saved, null)
 }
+
+/** Pacote para abrir. Atalho por nome ainda sem pacote (lista de apps carregando no boot) procura de novo na hora. */
+fun shortcutPackage(app: AppEntry, fresh: () -> List<AppEntry>): String =
+    app.pkg.ifBlank { resolveShortcut("nome:${app.label}", fresh()).pkg }

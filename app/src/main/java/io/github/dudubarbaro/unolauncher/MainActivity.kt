@@ -72,6 +72,7 @@ import io.github.dudubarbaro.unolauncher.ui.TripsScreen
 import io.github.dudubarbaro.unolauncher.ui.UnoTheme
 import io.github.dudubarbaro.unolauncher.ui.pianoBackground
 import io.github.dudubarbaro.unolauncher.ui.resolveShortcut
+import io.github.dudubarbaro.unolauncher.ui.shortcutPackage
 import io.github.dudubarbaro.unolauncher.ui.su
 import java.io.File
 import java.time.ZonedDateTime
@@ -173,12 +174,12 @@ class MainActivity : ComponentActivity() {
         return out.asImageBitmap()
     }
 
-    private fun loadApps(): List<AppEntry> {
+    private fun loadApps(icons: Boolean = true): List<AppEntry> {
         val pm = packageManager
         return pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
             .filter { it.activityInfo.packageName != packageName }
             .distinctBy { it.activityInfo.packageName }
-            .map { AppEntry(it.loadLabel(pm).toString(), it.activityInfo.packageName, runCatching { it.loadIcon(pm).toBitmap(96, 96).asImageBitmap() }.getOrNull()) }
+            .map { AppEntry(it.loadLabel(pm).toString(), it.activityInfo.packageName, if (icons) runCatching { it.loadIcon(pm).toBitmap(96, 96).asImageBitmap() }.getOrNull() else null) }
     }
 
     private fun appLabel(pkg: String): String? =
@@ -269,8 +270,9 @@ class MainActivity : ComponentActivity() {
                                             shortcuts = shortcuts,
                                         ),
                                         onShortcut = { app ->
-                                            if (app.pkg.isBlank()) Toast.makeText(this@MainActivity, "${app.label} não está instalado", Toast.LENGTH_SHORT).show()
-                                            else Startup.launch(this@MainActivity, app.pkg, app.label)
+                                            val pkg = shortcutPackage(app) { loadApps(icons = false) }
+                                            if (pkg.isBlank()) Toast.makeText(this@MainActivity, "${app.label} não está instalado", Toast.LENGTH_SHORT).show()
+                                            else Startup.launch(this@MainActivity, pkg, app.label)
                                         },
                                         onObd = { screen = Screen.OBD },
                                         onSettings = { screen = Screen.SETTINGS },
