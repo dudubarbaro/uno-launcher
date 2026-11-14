@@ -19,6 +19,23 @@ android {
         buildConfigField("String", "MET_CONTACT", "\"${findProperty("unoContact") ?: ""}\"")
     }
 
+    // Chave do dono, fora do repositório (~/.gradle/gradle.properties). Sem ela o release sai sem assinatura.
+    if (project.hasProperty("unoKeystore")) {
+        signingConfigs.create("uno") {
+            storeFile = file(property("unoKeystore") as String)
+            storePassword = property("unoKeystorePassword") as String
+            keyAlias = property("unoKeyAlias") as String
+            keyPassword = property("unoKeyPassword") as String
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false // ponytail: sem R8; ligar se o tamanho do APK incomodar
+            signingConfigs.findByName("uno")?.let { signingConfig = it }
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
