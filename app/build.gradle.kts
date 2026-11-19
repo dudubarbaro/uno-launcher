@@ -13,8 +13,8 @@ android {
         applicationId = "io.github.dudubarbaro.unolauncher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.2.1"
+        versionCode = 4
+        versionName = "0.2.2"
         // Contato exigido pelo met.no; vem de ~/.gradle/gradle.properties, nunca do repositório.
         buildConfigField("String", "MET_CONTACT", "\"${findProperty("unoContact") ?: ""}\"")
     }
